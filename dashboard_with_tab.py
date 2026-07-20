@@ -32,7 +32,35 @@ COLORS = {
 }
 
 PLOTLY_TEMPLATE = "plotly_white"
-PRODUCT_COLORS = ["#1B3A8C", "#2BBFBF", "#5B8DEF", "#27AE60", "#8FA8C8"]
+PRODUCT_COLORS  = ["#1B3A8C", "#2BBFBF", "#5B8DEF", "#27AE60", "#8FA8C8"]
+
+# ─────────────────────────────────────────
+# 兼容性封装：统一处理 use_container_width
+# ─────────────────────────────────────────
+def _st_version_tuple():
+    """返回当前streamlit版本元组，用于兼容判断。"""
+    try:
+        parts = st.__version__.split(".")
+        return tuple(int(x) for x in parts[:2])
+    except Exception:
+        return (1, 35)
+
+_VER = _st_version_tuple()
+
+def plotly_chart(fig, stretch=True):
+    """兼容新旧版本的plotly_chart封装。"""
+    if _VER >= (1, 42):
+        st.plotly_chart(fig, width="stretch" if stretch else "content")
+    else:
+        st.plotly_chart(fig, use_container_width=stretch)
+
+def dataframe(df, **kwargs):
+    """兼容新旧版本的dataframe封装。"""
+    if _VER >= (1, 42):
+        kwargs.pop("use_container_width", None)
+        st.dataframe(df, width="stretch", **kwargs)
+    else:
+        st.dataframe(df, use_container_width=True, **kwargs)
 
 # ─────────────────────────────────────────
 # 数据层
@@ -46,49 +74,49 @@ def load_financial_data() -> dict:
 
     # ── 一、盈利指标（近3年）──
     profit = pd.DataFrame({
-        "年份":           ["2023",      "2024",      "2025"],
-        "营业收入":       [304199.25,   370409.52,   451048.44],
-        "归母净利润":     [47418.63,    42854.93,    50500.02],
-        "扣非归母净利润": [40711.77,    40358.32,    49505.05],
-        "营业成本":       [215659.49,   264094.04,   320449.39],
-        "研发费用":       [26241.48,    31470.81,    42557.74],
-        "销售费用":       [None,        14808.78,    15355.69],
-        "管理费用":       [None,        15413.53,    18250.83],
+        "年份":           ["2023",     "2024",     "2025"],
+        "营业收入":       [304199.25,  370409.52,  451048.44],
+        "归母净利润":     [47418.63,   42854.93,   50500.02],
+        "扣非归母净利润": [40711.77,   40358.32,   49505.05],
+        "营业成本":       [215659.49,  264094.04,  320449.39],
+        "研发费用":       [26241.48,   31470.81,   42557.74],
+        "销售费用":       [None,       14808.78,   15355.69],
+        "管理费用":       [None,       15413.53,   18250.83],
     })
     profit["毛利率"]     = (profit["营业收入"] - profit["营业成本"]) / profit["营业收入"] * 100
     profit["净利率"]     = profit["归母净利润"] / profit["营业收入"] * 100
-    profit["研发费用率"] = profit["研发费用"] / profit["营业收入"] * 100
-    profit["销售费用率"] = profit["销售费用"] / profit["营业收入"] * 100
+    profit["研发费用率"] = profit["研发费用"]   / profit["营业收入"] * 100
+    profit["销售费用率"] = profit["销售费用"]   / profit["营业收入"] * 100
 
     # ── 二、现金流指标 ──
     cashflow = pd.DataFrame({
-        "年份":               ["2023",    "2024",    "2025"],
-        "经营活动现金净流量": [33699.16,  72004.40,  66810.25],
-        "归母净利润":         [47418.63,  42854.93,  50500.02],
+        "年份":               ["2023",   "2024",   "2025"],
+        "经营活动现金净流量": [33699.16, 72004.40, 66810.25],
+        "归母净利润":         [47418.63, 42854.93, 50500.02],
     })
     cashflow["现金保障倍数(%)"] = cashflow["经营活动现金净流量"] / cashflow["归母净利润"] * 100
 
     # ── 三、资产负债指标 ──
     balance = pd.DataFrame({
-        "年份":       ["2023",      "2024",      "2025"],
-        "总资产":     [489575.64,   571788.24,   713143.94],
-        "归母净资产": [244818.94,   279943.78,   353529.91],
-        "负债合计":   [None,        287496.93,   341795.83],
-        "流动资产":   [None,        304506.86,   430087.38],
-        "流动负债":   [None,        233739.63,   298940.57],
+        "年份":       ["2023",     "2024",     "2025"],
+        "总资产":     [489575.64,  571788.24,  713143.94],
+        "归母净资产": [244818.94,  279943.78,  353529.91],
+        "负债合计":   [None,       287496.93,  341795.83],
+        "流动资产":   [None,       304506.86,  430087.38],
+        "流动负债":   [None,       233739.63,  298940.57],
     })
     balance["资产负债率(%)"] = balance["负债合计"] / balance["总资产"] * 100
     balance["流动比率"]      = balance["流动资产"] / balance["流动负债"]
 
     # ── 四、ROE ──
     roe = pd.DataFrame({
-        "年份": ["2023",  "2024",  "2025"],
-        "ROE":  [21.66,   16.52,   16.34],
+        "年份": ["2023", "2024", "2025"],
+        "ROE":  [21.66,  16.52,  16.34],
     })
 
     # ── 五、成长指标 ──
     growth = pd.DataFrame({
-        "年份":     ["2024",  "2025"],
+        "年份":     ["2024", "2025"],
         "营收增速": [round((370409.52 - 304199.25) / 304199.25 * 100, 2), 21.77],
         "净利增速": [round((42854.93  - 47418.63)  / 47418.63  * 100, 2), 17.84],
     })
@@ -117,10 +145,10 @@ def load_financial_data() -> dict:
 
     # ── 八、分地区 ──
     region = pd.DataFrame({
-        "地区":      ["中国内地",  "境外"],
-        "营业收入":  [424559.52,   26488.92],
-        "毛利率(%)": [28.55,       None],
-        "2024收入":  [350016.18,   20393.34],
+        "地区":      ["中国内地", "境外"],
+        "营业收入":  [424559.52,  26488.92],
+        "毛利率(%)": [28.55,      None],
+        "2024收入":  [350016.18,  20393.34],
     })
     region["同比增速(%)"] = (region["营业收入"] - region["2024收入"]) / region["2024收入"] * 100
 
@@ -134,13 +162,13 @@ def load_financial_data() -> dict:
 
     # ── 十、产销量 ──
     volume = pd.DataFrame({
-        "行业":          ["智能制造",  "新能源汽车"],
-        "销售量(PCS)":   [25971863,    5933895],
-        "生产量(PCS)":   [25499533,    6108223],
-        "库存量(PCS)":   [1361822,     724156],
-        "2024销售量":    [19785481,    4619378],
-        "2024生产量":    [20084736,    4845348],
-        "2024库存量":    [1834152,     549828],
+        "行业":         ["智能制造",  "新能源汽车"],
+        "销售量(PCS)":  [25971863,    5933895],
+        "生产量(PCS)":  [25499533,    6108223],
+        "库存量(PCS)":  [1361822,     724156],
+        "2024销售量":   [19785481,    4619378],
+        "2024生产量":   [20084736,    4845348],
+        "2024库存量":   [1834152,     549828],
     })
     volume["销售量增速(%)"] = (volume["销售量(PCS)"] - volume["2024销售量"]) / volume["2024销售量"] * 100
 
@@ -191,20 +219,17 @@ def load_financial_data() -> dict:
     }
 
 # ─────────────────────────────────────────
-# 样式层（Tab CSS已修复）
+# 样式层
 # ─────────────────────────────────────────
 def inject_css() -> None:
     """注入全局CSS样式。Tab交互样式已修复，不覆盖Streamlit原生事件区域。"""
     st.markdown("""
     <style>
-    /* ── 全局背景 ── */
     .stApp {
         background-color: #F5F7FA;
         color: #1A2B4A;
         font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     }
-
-    /* ── 主标题横幅 ── */
     .main-header {
         background: linear-gradient(135deg, #1B3A8C 0%, #2B5299 60%, #1B3A8C 100%);
         border-left: 6px solid #2BBFBF;
@@ -213,124 +238,71 @@ def inject_css() -> None:
         padding: 22px 28px 18px 28px;
         margin-bottom: 20px;
     }
-    .main-header h1 {
-        color: #FFFFFF;
-        font-size: 1.9rem;
-        font-weight: 700;
-        margin: 0 0 6px 0;
-    }
-    .main-header p {
-        color: #A8C4E8;
-        font-size: 0.88rem;
-        margin: 0;
-    }
+    .main-header h1 { color:#FFFFFF; font-size:1.9rem; font-weight:700; margin:0 0 6px 0; }
+    .main-header p  { color:#A8C4E8; font-size:0.88rem; margin:0; }
 
-    /* ── KPI卡片 ── */
     [data-testid="metric-container"] {
-        background: #FFFFFF;
-        border: 1px solid #E0E8F5;
-        border-radius: 12px;
-        border-top: 4px solid #1B3A8C;
-        box-shadow: 0 2px 12px rgba(27,58,140,0.08);
-        padding: 14px 16px;
-        transition: box-shadow 0.2s;
+        background:#FFFFFF; border:1px solid #E0E8F5;
+        border-radius:12px; border-top:4px solid #1B3A8C;
+        box-shadow:0 2px 12px rgba(27,58,140,0.08);
+        padding:14px 16px; transition:box-shadow 0.2s;
     }
-    [data-testid="metric-container"]:hover {
-        box-shadow: 0 6px 24px rgba(27,58,140,0.15);
-    }
-    [data-testid="stMetricLabel"] {
-        color: #6B7A99 !important;
-        font-size: 0.82rem !important;
-        font-weight: 600 !important;
-    }
-    [data-testid="stMetricValue"] {
-        color: #1B3A8C !important;
-        font-size: 1.5rem !important;
-        font-weight: 700 !important;
-    }
-    [data-testid="stMetricDelta"] svg { display: none; }
-    [data-testid="stMetricDelta"] { font-size: 0.8rem; font-weight: 600; }
+    [data-testid="metric-container"]:hover { box-shadow:0 6px 24px rgba(27,58,140,0.15); }
+    [data-testid="stMetricLabel"] { color:#6B7A99 !important; font-size:0.82rem !important; font-weight:600 !important; }
+    [data-testid="stMetricValue"] { color:#1B3A8C !important; font-size:1.5rem !important; font-weight:700 !important; }
+    [data-testid="stMetricDelta"] svg { display:none; }
+    [data-testid="stMetricDelta"] { font-size:0.8rem; font-weight:600; }
 
-    /* ── Tab导航（修复版：只改外观，不动padding/结构）── */
+    /* ══ Tab修复核心：只改颜色，绝不动padding/margin/pointer-events ══ */
     [data-testid="stTabs"] [role="tablist"] {
-        background: #FFFFFF;
-        border-radius: 10px;
-        border: 1px solid #E0E8F5;
-        gap: 2px;
+        background:#FFFFFF;
+        border-radius:10px;
+        border:1px solid #E0E8F5;
     }
     [data-testid="stTabs"] button[role="tab"] {
-        color: #6B7A99;
-        font-weight: 600;
-        font-size: 0.88rem;
-        border-radius: 8px;
-        border: none;
-        background: transparent;
-        transition: background 0.18s, color 0.18s;
+        color:#6B7A99 !important;
+        font-weight:600;
+        font-size:0.88rem;
+        border-radius:8px;
+        background:transparent;
+        border:none;
+        transition:background 0.18s, color 0.18s;
     }
     [data-testid="stTabs"] button[role="tab"]:hover {
-        background: #EEF3FC;
-        color: #1B3A8C;
+        background:#EEF3FC !important;
+        color:#1B3A8C !important;
     }
     [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-        background: #1B3A8C;
-        color: #FFFFFF;
-        border-radius: 8px;
+        background:#1B3A8C !important;
+        color:#FFFFFF !important;
     }
 
-    /* ── 侧边栏 ── */
-    [data-testid="stSidebar"] {
-        background: #FFFFFF;
-        border-right: 2px solid #E0E8F5;
-    }
+    [data-testid="stSidebar"] { background:#FFFFFF; border-right:2px solid #E0E8F5; }
 
-    /* ── h3标题装饰 ── */
-    h3 {
-        color: #1B3A8C !important;
-        border-bottom: 2px solid #2BBFBF;
-        padding-bottom: 6px;
-        margin-bottom: 16px !important;
-    }
+    h3 { color:#1B3A8C !important; border-bottom:2px solid #2BBFBF;
+         padding-bottom:6px; margin-bottom:16px !important; }
 
-    /* ── Insight洞察框（4个变体）── */
     .insight-box {
-        background: #EEF3FC;
-        border-left: 5px solid #1B3A8C;
-        border-radius: 10px;
-        padding: 13px 18px;
-        font-size: 0.87rem;
-        margin-bottom: 10px;
-        line-height: 1.6;
+        background:#EEF3FC; border-left:5px solid #1B3A8C;
+        border-radius:10px; padding:13px 18px;
+        font-size:0.87rem; margin-bottom:10px; line-height:1.6;
     }
-    .insight-box.green { background: #EAF7F0; border-left-color: #27AE60; }
-    .insight-box.red   { background: #FEF0EE; border-left-color: #E74C3C; }
-    .insight-box.teal  { background: #E8F8F8; border-left-color: #2BBFBF; }
+    .insight-box.green { background:#EAF7F0; border-left-color:#27AE60; }
+    .insight-box.red   { background:#FEF0EE; border-left-color:#E74C3C; }
+    .insight-box.teal  { background:#E8F8F8; border-left-color:#2BBFBF; }
 
-    /* ── 下载按钮 ── */
     [data-testid="stDownloadButton"] button {
-        background: #1B3A8C;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        font-weight: 600;
+        background:#1B3A8C; color:white; border-radius:8px; border:none; font-weight:600;
     }
-    [data-testid="stDownloadButton"] button:hover { background: #2BBFBF; }
+    [data-testid="stDownloadButton"] button:hover { background:#2BBFBF; }
+    [data-testid="stDataFrame"] { border-radius:10px; border:1px solid #E0E8F5; }
 
-    /* ── 数据表格 ── */
-    [data-testid="stDataFrame"] {
-        border-radius: 10px;
-        border: 1px solid #E0E8F5;
-    }
-
-    /* ── 侧边栏Logo区 ── */
     .sidebar-logo {
-        background: linear-gradient(135deg, #1B3A8C, #2B5299);
-        border-radius: 12px;
-        padding: 16px;
-        text-align: center;
-        margin-bottom: 16px;
+        background:linear-gradient(135deg,#1B3A8C,#2B5299);
+        border-radius:12px; padding:16px; text-align:center; margin-bottom:16px;
     }
-    .sidebar-logo h2 { color: #FFFFFF; font-size: 1.1rem; margin: 0 0 4px 0; }
-    .sidebar-logo p  { color: #A8C4E8; font-size: 0.78rem; margin: 0; }
+    .sidebar-logo h2 { color:#FFFFFF; font-size:1.1rem; margin:0 0 4px 0; }
+    .sidebar-logo p  { color:#A8C4E8; font-size:0.78rem; margin:0; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -374,39 +346,34 @@ def render_tab_ceo(data: dict) -> None:
     roe       = data["roe"]
 
     st.markdown("### 📊 核心经营指标（FY2025）")
-
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    kpi_card(c1, "营业总收入",     "451.05亿元", "同比",  "+21.77%", "2025年")
-    kpi_card(c2, "归母净利润",     "50.50亿元",  "同比",  "+17.84%", "2025年")
-    kpi_card(c3, "扣非归母净利润", "49.51亿元",  "同比",  "+22.66%", "2025年")
-    kpi_card(c4, "研发投入",       "42.56亿元",  "费用率","9.44%",   "研发人员7,670人")
-    kpi_card(c5, "基本EPS",        "1.87元/股",  "同比",  "+16.88%", "稀释EPS 1.85元")
-    kpi_card(c6, "现金分红比例",   "26.80%",     "每股",  "0.50元",  "共派13.53亿元")
+    kpi_card(c1, "营业总收入",     "451.05亿元", "同比",   "+21.77%", "2025年")
+    kpi_card(c2, "归母净利润",     "50.50亿元",  "同比",   "+17.84%", "2025年")
+    kpi_card(c3, "扣非归母净利润", "49.51亿元",  "同比",   "+22.66%", "2025年")
+    kpi_card(c4, "研发投入",       "42.56亿元",  "费用率", "9.44%",   "研发人员7,670人")
+    kpi_card(c5, "基本EPS",        "1.87元/股",  "同比",   "+16.88%", "稀释EPS 1.85元")
+    kpi_card(c6, "现金分红比例",   "26.80%",     "每股",   "0.50元",  "共派13.53亿元")
 
     st.markdown("<br>", unsafe_allow_html=True)
-
     a1, a2, a3, a4 = st.columns(4)
-    kpi_card(a1, "总资产",      "713.14亿元", "同比", "+24.72%", "2025年末")
-    kpi_card(a2, "归母净资产",  "353.53亿元", "同比", "+26.29%", "2025年末")
+    kpi_card(a1, "总资产",      "713.14亿元", "同比", "+24.72%",  "2025年末")
+    kpi_card(a2, "归母净资产",  "353.53亿元", "同比", "+26.29%",  "2025年末")
     kpi_card(a3, "加权平均ROE", "16.34%",     "同比", "-0.18pct", "2024年16.52%")
-    kpi_card(a4, "境外收入",    "26.49亿元",  "同比", "+29.89%", "占比5.87%")
+    kpi_card(a4, "境外收入",    "26.49亿元",  "同比", "+29.89%",  "占比5.87%")
 
     st.markdown("<br>", unsafe_allow_html=True)
-
     col_left, col_right = st.columns([3, 2])
 
     with col_left:
         st.markdown("### 三年核心财务趋势")
-        fig_trend = make_subplots(specs=[[{"secondary_y": True}]])
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
         years = profit["年份"].tolist()
-
-        fig_trend.add_trace(go.Bar(
+        fig.add_trace(go.Bar(
             x=years, y=profit["营业收入"], name="营业收入（万元）",
             marker_color=COLORS["primary"], opacity=0.82,
             hovertemplate="<b>%{x}</b><br>营业收入：%{y:,.0f} 万元<extra></extra>",
         ), secondary_y=False)
-
-        fig_trend.add_trace(go.Scatter(
+        fig.add_trace(go.Scatter(
             x=years, y=profit["归母净利润"], name="归母净利润（万元）",
             mode="lines+markers+text",
             line=dict(color=COLORS["secondary"], width=2.5),
@@ -415,76 +382,63 @@ def render_tab_ceo(data: dict) -> None:
             textposition="top center", textfont=dict(size=11, color=COLORS["secondary"]),
             hovertemplate="<b>%{x}</b><br>归母净利润：%{y:,.0f} 万元<extra></extra>",
         ), secondary_y=False)
-
-        fig_trend.add_trace(go.Scatter(
+        fig.add_trace(go.Scatter(
             x=years, y=profit["净利率"], name="净利率（%）",
             mode="lines+markers",
             line=dict(color=COLORS["success"], width=2, dash="dot"),
             marker=dict(size=8, color=COLORS["success"]),
             hovertemplate="<b>%{x}</b><br>净利率：%{y:.2f}%<extra></extra>",
         ), secondary_y=True)
-
-        fig_trend.update_layout(**base_layout(
+        fig.update_layout(**base_layout(
             title="营业收入 / 归母净利润 / 净利率（三年趋势）", height=420,
             legend=dict(orientation="h", y=-0.18, x=0.5, xanchor="center",
                         bgcolor="rgba(255,255,255,0.8)", bordercolor="#E0E8F5", borderwidth=1),
         ))
-        fig_trend.update_yaxes(title_text="金额（万元）", secondary_y=False, gridcolor=COLORS["grid_color"])
-        fig_trend.update_yaxes(title_text="净利率（%）",  secondary_y=True,  gridcolor=COLORS["grid_color"])
-        st.plotly_chart(fig_trend, use_container_width=True)
+        fig.update_yaxes(title_text="金额（万元）", secondary_y=False, gridcolor=COLORS["grid_color"])
+        fig.update_yaxes(title_text="净利率（%）",  secondary_y=True,  gridcolor=COLORS["grid_color"])
+        plotly_chart(fig)
 
     with col_right:
         st.markdown("### 盈利质量雷达图")
         categories = ["毛利率", "净利率", "研发费用率", "销售费用率", "ROE"]
 
         def get_radar_vals(yr):
-            p = profit[profit["年份"] == yr]
-            r = roe[roe["年份"] == yr]
+            p   = profit[profit["年份"] == yr]
+            r   = roe[roe["年份"] == yr]
             sf_raw = p["销售费用率"].values[0]
             if sf_raw is None or (isinstance(sf_raw, float) and np.isnan(sf_raw)):
                 sf = float(profit[profit["年份"] == "2024"]["销售费用率"].values[0])
             else:
                 sf = float(sf_raw)
-            return [
-                float(p["毛利率"].values[0]),
-                float(p["净利率"].values[0]),
-                float(p["研发费用率"].values[0]),
-                sf,
-                float(r["ROE"].values[0]),
-            ]
+            return [float(p["毛利率"].values[0]), float(p["净利率"].values[0]),
+                    float(p["研发费用率"].values[0]), sf, float(r["ROE"].values[0])]
 
-        fig_radar = go.Figure()
+        fig_r = go.Figure()
         for yr, color in [("2023", COLORS["neutral"]), ("2024", COLORS["secondary"]), ("2025", COLORS["primary"])]:
             vals = get_radar_vals(yr)
-            fig_radar.add_trace(go.Scatterpolar(
+            fig_r.add_trace(go.Scatterpolar(
                 r=vals + [vals[0]], theta=categories + [categories[0]],
                 fill="toself", name=yr,
-                line=dict(color=color, width=2),
-                opacity=0.85,
+                line=dict(color=color, width=2), opacity=0.85,
             ))
-
-        fig_radar.update_layout(**base_layout(
+        fig_r.update_layout(**base_layout(
             title="盈利质量雷达（三年对比）", height=420,
             polar=dict(radialaxis=dict(visible=True, range=[0, 35]), bgcolor=COLORS["plot_bg"]),
             legend=dict(orientation="h", y=-0.12, x=0.5, xanchor="center",
                         bgcolor="rgba(255,255,255,0.8)", bordercolor="#E0E8F5", borderwidth=1),
         ))
-        st.plotly_chart(fig_radar, use_container_width=True)
+        plotly_chart(fig_r)
 
     st.markdown("### 季度营收节奏（FY2025）")
-    fig_q = make_subplots(rows=1, cols=2,
-                          subplot_titles=("季度营业收入（万元）", "季度净利率（%）"))
-
+    fig_q = make_subplots(rows=1, cols=2, subplot_titles=("季度营业收入（万元）", "季度净利率（%）"))
     q_colors = [COLORS["neutral"], COLORS["primary"], COLORS["primary"], COLORS["secondary"]]
     fig_q.add_trace(go.Bar(
-        x=quarterly["季度"], y=quarterly["营业收入"],
-        marker_color=q_colors,
+        x=quarterly["季度"], y=quarterly["营业收入"], marker_color=q_colors,
         text=[f"{v:,.0f}" for v in quarterly["营业收入"]],
         textposition="outside", textfont=dict(size=11),
         hovertemplate="<b>%{x}</b><br>营业收入：%{y:,.0f} 万元<extra></extra>",
         showlegend=False,
     ), row=1, col=1)
-
     fig_q.add_trace(go.Scatter(
         x=quarterly["季度"], y=quarterly["净利率(%)"],
         mode="lines+markers+text",
@@ -495,10 +449,9 @@ def render_tab_ceo(data: dict) -> None:
         hovertemplate="<b>%{x}</b><br>净利率：%{y:.2f}%<extra></extra>",
         showlegend=False,
     ), row=1, col=2)
-
     fig_q.update_layout(**base_layout(height=400, showlegend=False))
     fig_q.update_yaxes(gridcolor=COLORS["grid_color"])
-    st.plotly_chart(fig_q, use_container_width=True)
+    plotly_chart(fig_q)
 
     st.markdown("""
     <div class="insight-box red">
@@ -528,53 +481,38 @@ def render_tab_product(data: dict) -> None:
     market  = data["market_share"]
 
     st.markdown("### 🏭 产品线收入结构（FY2025）")
-
-    col1, col2 = st.columns([1, 1])
+    col1, col2 = st.columns(2)
 
     with col1:
         fig_pie = go.Figure(go.Pie(
-            labels=product["产品线"], values=product["营业收入"],
-            hole=0.52,
+            labels=product["产品线"], values=product["营业收入"], hole=0.52,
             marker=dict(colors=PRODUCT_COLORS[:len(product)], line=dict(color="white", width=2)),
             textinfo="label+percent", textfont=dict(size=12),
             hovertemplate="<b>%{label}</b><br>收入：%{value:,.0f} 万元<br>占比：%{percent}<extra></extra>",
         ))
-        fig_pie.add_annotation(
-            text="总收入<br><b>451.05亿</b>",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=13, color=COLORS["primary"]),
-        )
-        fig_pie.update_layout(
-            **base_layout(title="产品线收入占比（FY2025）", height=340),
-            showlegend=True,
-            legend=dict(orientation="h", y=-0.12, x=0.5, xanchor="center"),
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig_pie.add_annotation(text="总收入<br><b>451.05亿</b>", x=0.5, y=0.5, showarrow=False,
+                               font=dict(size=13, color=COLORS["primary"]))
+        fig_pie.update_layout(**base_layout(title="产品线收入占比（FY2025）", height=340),
+                              showlegend=True,
+                              legend=dict(orientation="h", y=-0.12, x=0.5, xanchor="center"))
+        plotly_chart(fig_pie)
 
     with col2:
-        overall_growth = 21.77
-        colors_growth = [COLORS["success"] if v >= 0 else COLORS["danger"]
-                         for v in product["同比增速(%)"]]
-        fig_growth = go.Figure(go.Bar(
-            x=product["同比增速(%)"], y=product["产品线"],
-            orientation="h", marker_color=colors_growth,
+        colors_g = [COLORS["success"] if v >= 0 else COLORS["danger"] for v in product["同比增速(%)"]]
+        fig_g = go.Figure(go.Bar(
+            x=product["同比增速(%)"], y=product["产品线"], orientation="h",
+            marker_color=colors_g,
             text=[f"{v:+.2f}%" for v in product["同比增速(%)"]],
             textposition="outside", textfont=dict(size=12),
             hovertemplate="<b>%{y}</b><br>同比增速：%{x:.2f}%<extra></extra>",
         ))
-        fig_growth.add_vline(x=0, line_dash="dash", line_color=COLORS["text_muted"], line_width=1)
-        fig_growth.add_vline(
-            x=overall_growth, line_dash="dot", line_color=COLORS["primary"], line_width=2,
-            annotation_text=f"整体增速 {overall_growth:.1f}%",
-            annotation_position="top right",
-            annotation_font=dict(color=COLORS["primary"], size=11),
-        )
-        fig_growth.update_layout(
-            **base_layout(title="产品线同比增速（FY2025 vs FY2024）", height=340),
-            showlegend=False,
-        )
-        fig_growth.update_xaxes(title_text="同比增速（%）")
-        st.plotly_chart(fig_growth, use_container_width=True)
+        fig_g.add_vline(x=0, line_dash="dash", line_color=COLORS["text_muted"], line_width=1)
+        fig_g.add_vline(x=21.77, line_dash="dot", line_color=COLORS["primary"], line_width=2,
+                        annotation_text="整体增速 21.8%", annotation_position="top right",
+                        annotation_font=dict(color=COLORS["primary"], size=11))
+        fig_g.update_layout(**base_layout(title="产品线同比增速（FY2025 vs FY2024）", height=340), showlegend=False)
+        fig_g.update_xaxes(title_text="同比增速（%）")
+        plotly_chart(fig_g)
 
     st.markdown("### 产品线收入与毛利率对比")
     fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
@@ -597,15 +535,13 @@ def render_tab_product(data: dict) -> None:
     ))
     fig_dual.update_yaxes(title_text="营业收入（万元）", secondary_y=False)
     fig_dual.update_yaxes(title_text="毛利率（%）", secondary_y=True, range=[0, 60])
-    st.plotly_chart(fig_dual, use_container_width=True)
+    plotly_chart(fig_dual)
 
     st.markdown("### 产销量对比（FY2025）")
     fig_vol = go.Figure()
-    for metric, color in [
-        ("销售量(PCS)", COLORS["primary"]),
-        ("生产量(PCS)", COLORS["secondary"]),
-        ("库存量(PCS)", COLORS["neutral"]),
-    ]:
+    for metric, color in [("销售量(PCS)", COLORS["primary"]),
+                           ("生产量(PCS)", COLORS["secondary"]),
+                           ("库存量(PCS)", COLORS["neutral"])]:
         fig_vol.add_trace(go.Bar(
             name=metric, x=volume["行业"], y=volume[metric],
             marker_color=color, opacity=0.9,
@@ -618,10 +554,10 @@ def render_tab_product(data: dict) -> None:
         legend=dict(orientation="h", y=-0.18, x=0.5, xanchor="center",
                     bgcolor="rgba(255,255,255,0.8)", bordercolor="#E0E8F5", borderwidth=1),
     ))
-    st.plotly_chart(fig_vol, use_container_width=True)
+    plotly_chart(fig_vol)
 
     st.markdown("### 中国市场份额（弗若斯特沙利文，2025年）")
-    st.dataframe(market, use_container_width=True, height=250)
+    dataframe(market, height=250)
 
     st.markdown("""
     <div class="insight-box red">
@@ -649,69 +585,47 @@ def render_tab_market(data: dict) -> None:
     region = data["region"]
 
     st.markdown("### 🌍 地区收入分布（FY2025）")
-
     col1, col2 = st.columns([3, 2])
 
     with col1:
-        fig_region = go.Figure(go.Bar(
-            x=region["营业收入"], y=region["地区"],
-            orientation="h",
+        fig_r = go.Figure(go.Bar(
+            x=region["营业收入"], y=region["地区"], orientation="h",
             marker_color=[COLORS["primary"], COLORS["secondary"]],
             text=[f"{v:,.0f} 万元" for v in region["营业收入"]],
             textposition="outside", textfont=dict(size=12),
             hovertemplate="<b>%{y}</b><br>营业收入：%{x:,.0f} 万元<extra></extra>",
         ))
-        fig_region.update_layout(
-            **base_layout(title="分地区营业收入（FY2025）", height=340),
-            showlegend=False,
-        )
-        fig_region.update_xaxes(title_text="营业收入（万元）")
-        st.plotly_chart(fig_region, use_container_width=True)
+        fig_r.update_layout(**base_layout(title="分地区营业收入（FY2025）", height=340), showlegend=False)
+        fig_r.update_xaxes(title_text="营业收入（万元）")
+        plotly_chart(fig_r)
 
     with col2:
         fig_geo = go.Figure(go.Pie(
-            labels=region["地区"], values=region["营业收入"],
-            hole=0.52,
+            labels=region["地区"], values=region["营业收入"], hole=0.52,
             marker=dict(colors=[COLORS["primary"], COLORS["secondary"]], line=dict(color="white", width=2)),
             textinfo="label+percent",
             hovertemplate="<b>%{label}</b><br>%{value:,.0f} 万元<extra></extra>",
         ))
-        fig_geo.add_annotation(
-            text="境内/境外<br><b>94:6</b>",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=12, color=COLORS["primary"]),
-        )
-        fig_geo.update_layout(
-            **base_layout(title="境内 vs 境外收入占比", height=340),
-            showlegend=False,
-        )
-        st.plotly_chart(fig_geo, use_container_width=True)
+        fig_geo.add_annotation(text="境内/境外<br><b>94:6</b>", x=0.5, y=0.5, showarrow=False,
+                               font=dict(size=12, color=COLORS["primary"]))
+        fig_geo.update_layout(**base_layout(title="境内 vs 境外收入占比", height=340), showlegend=False)
+        plotly_chart(fig_geo)
 
     st.markdown("### 地区收入增速对比")
-    overall_growth = 21.77
-    growth_colors = [
-        COLORS["success"] if v >= overall_growth else COLORS["primary"]
-        for v in region["同比增速(%)"]
-    ]
-    fig_reg_g = go.Figure(go.Bar(
-        x=region["同比增速(%)"], y=region["地区"],
-        orientation="h", marker_color=growth_colors,
+    growth_colors = [COLORS["success"] if v >= 21.77 else COLORS["primary"] for v in region["同比增速(%)"]]
+    fig_rg = go.Figure(go.Bar(
+        x=region["同比增速(%)"], y=region["地区"], orientation="h",
+        marker_color=growth_colors,
         text=[f"{v:+.2f}%" for v in region["同比增速(%)"]],
         textposition="outside", textfont=dict(size=13),
         hovertemplate="<b>%{y}</b><br>同比增速：%{x:.2f}%<extra></extra>",
     ))
-    fig_reg_g.add_vline(
-        x=overall_growth, line_dash="dot", line_color=COLORS["primary"], line_width=2,
-        annotation_text=f"整体增速 {overall_growth:.1f}%",
-        annotation_position="top right",
-        annotation_font=dict(color=COLORS["primary"], size=11),
-    )
-    fig_reg_g.update_layout(
-        **base_layout(title="分地区同比增速（FY2025 vs FY2024）", height=340),
-        showlegend=False,
-    )
-    fig_reg_g.update_xaxes(title_text="同比增速（%）")
-    st.plotly_chart(fig_reg_g, use_container_width=True)
+    fig_rg.add_vline(x=21.77, line_dash="dot", line_color=COLORS["primary"], line_width=2,
+                     annotation_text="整体增速 21.8%", annotation_position="top right",
+                     annotation_font=dict(color=COLORS["primary"], size=11))
+    fig_rg.update_layout(**base_layout(title="分地区同比增速（FY2025 vs FY2024）", height=340), showlegend=False)
+    fig_rg.update_xaxes(title_text="同比增速（%）")
+    plotly_chart(fig_rg)
 
     st.markdown("### 📦 销售渠道结构")
     st.warning("⚠️ 财报未单独披露直销与经销拆分数据，渠道口径合并披露：FY2025营业收入 451,048.44 万元，毛利率 28.95%。")
@@ -723,7 +637,7 @@ def render_tab_market(data: dict) -> None:
         "布局形式": ["全资子公司+研发中心", "全资子公司+研发中心", "全资子公司", "全资子公司"],
         "战略重点": ["高端制造客户渗透", "借船出海+本地化交付", "新兴市场拓展", "北美市场布局"],
     })
-    st.dataframe(overseas, use_container_width=True, height=200)
+    dataframe(overseas, height=200)
 
     st.markdown("""
     <div class="insight-box red">
@@ -748,7 +662,6 @@ def render_tab_rd(data: dict) -> None:
     rd       = data["rd_staff"]
 
     st.markdown("### 💰 三大费用对比（FY2024 vs FY2025）")
-
     col1, col2 = st.columns(2)
 
     with col1:
@@ -772,32 +685,22 @@ def render_tab_rd(data: dict) -> None:
             legend=dict(orientation="h", y=-0.18, x=0.5, xanchor="center",
                         bgcolor="rgba(255,255,255,0.8)", bordercolor="#E0E8F5", borderwidth=1),
         ))
-        st.plotly_chart(fig_exp, use_container_width=True)
+        plotly_chart(fig_exp)
 
     with col2:
-        rev_growth = 21.77
-        exp_colors = [
-            COLORS["danger"] if v > rev_growth else COLORS["success"]
-            for v in expenses["增速(%)"]
-        ]
-        fig_exp_g = go.Figure(go.Bar(
+        exp_colors = [COLORS["danger"] if v > 21.77 else COLORS["success"] for v in expenses["增速(%)"]]
+        fig_eg = go.Figure(go.Bar(
             x=expenses["费用类型"], y=expenses["增速(%)"],
             marker_color=exp_colors,
             text=[f"{v:+.2f}%" for v in expenses["增速(%)"]],
             textposition="outside", textfont=dict(size=12),
             hovertemplate="<b>%{x}</b><br>增速：%{y:.2f}%<extra></extra>",
         ))
-        fig_exp_g.add_hline(
-            y=rev_growth, line_dash="dot", line_color=COLORS["primary"], line_width=2,
-            annotation_text=f"收入增速 {rev_growth:.1f}%",
-            annotation_position="top right",
-            annotation_font=dict(color=COLORS["primary"], size=11),
-        )
-        fig_exp_g.update_layout(
-            **base_layout(title="费用增速 vs 收入增速（%）", height=400),
-            showlegend=False,
-        )
-        st.plotly_chart(fig_exp_g, use_container_width=True)
+        fig_eg.add_hline(y=21.77, line_dash="dot", line_color=COLORS["primary"], line_width=2,
+                         annotation_text="收入增速 21.8%", annotation_position="top right",
+                         annotation_font=dict(color=COLORS["primary"], size=11))
+        fig_eg.update_layout(**base_layout(title="费用增速 vs 收入增速（%）", height=400), showlegend=False)
+        plotly_chart(fig_eg)
 
     st.markdown("### 🔬 研发投入趋势（近3年）")
     years_rd = ["2023", "2024", "2025"]
@@ -827,11 +730,11 @@ def render_tab_rd(data: dict) -> None:
     ))
     fig_rd.update_yaxes(title_text="研发费用（万元）", secondary_y=False)
     fig_rd.update_yaxes(title_text="研发费用率（%）", secondary_y=True, range=[7, 12])
-    st.plotly_chart(fig_rd, use_container_width=True)
+    plotly_chart(fig_rd)
 
     col3, col4, col5 = st.columns(3)
     with col3:
-        st.metric("研发人员总数", f"{rd['研发人员总数']:,} 人", delta="2025年末")
+        st.metric("研发人员总数",  f"{rd['研发人员总数']:,} 人",  delta="2025年末")
     with col4:
         st.metric("累计专利及软著", f"{rd['累计专利及软著']:,} 个", delta="含发明专利、实用新型、软著")
     with col5:
@@ -842,11 +745,8 @@ def render_tab_rd(data: dict) -> None:
     st.markdown("### 📉 利润拆解瀑布图（FY2025，万元）")
     wf = data["waterfall"]
     fig_wf = go.Figure(go.Waterfall(
-        name="利润拆解",
-        orientation="v",
-        measure=wf["measure"],
-        x=wf["节点"],
-        y=wf["金额"],
+        name="利润拆解", orientation="v",
+        measure=wf["measure"], x=wf["节点"], y=wf["金额"],
         text=[f"{v:,.0f}" for v in wf["金额"]],
         textposition="outside", textfont=dict(size=10),
         increasing=dict(marker=dict(color=COLORS["success"])),
@@ -855,11 +755,8 @@ def render_tab_rd(data: dict) -> None:
         connector=dict(line=dict(color=COLORS["grid_color"], width=1.5, dash="dot")),
         hovertemplate="<b>%{x}</b><br>金额：%{y:,.0f} 万元<extra></extra>",
     ))
-    fig_wf.update_layout(
-        **base_layout(title="FY2025 利润拆解瀑布图（万元）", height=470),
-        showlegend=False,
-    )
-    st.plotly_chart(fig_wf, use_container_width=True)
+    fig_wf.update_layout(**base_layout(title="FY2025 利润拆解瀑布图（万元）", height=470), showlegend=False)
+    plotly_chart(fig_wf)
 
     st.markdown("""
     <div class="insight-box red">
@@ -886,13 +783,13 @@ def render_tab_export(data: dict) -> None:
     st.markdown("### 📥 数据导出与查询")
 
     export_tables = {
-        "盈利指标（近3年）":          data["profit"][["年份", "营业收入", "归母净利润", "扣非归母净利润", "毛利率", "净利率", "研发费用率"]],
+        "盈利指标（近3年）":          data["profit"][["年份","营业收入","归母净利润","扣非归母净利润","毛利率","净利率","研发费用率"]],
         "现金流指标（近3年）":        data["cashflow"],
-        "资产负债指标（近3年）":      data["balance"][["年份", "总资产", "归母净资产", "负债合计", "流动资产", "流动负债", "资产负债率(%)", "流动比率"]],
-        "产品线结构（FY2025）":       data["product"][["产品线", "营业收入", "营业成本", "毛利率(%)", "收入占比(%)", "同比增速(%)"]],
-        "分地区数据（FY2025）":       data["region"][["地区", "营业收入", "毛利率(%)", "同比增速(%)"]],
+        "资产负债指标（近3年）":      data["balance"][["年份","总资产","归母净资产","负债合计","流动资产","流动负债","资产负债率(%)","流动比率"]],
+        "产品线结构（FY2025）":       data["product"][["产品线","营业收入","营业成本","毛利率(%)","收入占比(%)","同比增速(%)"]],
+        "分地区数据（FY2025）":       data["region"][["地区","营业收入","毛利率(%)","同比增速(%)"]],
         "分季度数据（FY2025）":       data["quarterly"],
-        "产销量数据（FY2025）":       data["volume"][["行业", "销售量(PCS)", "生产量(PCS)", "库存量(PCS)", "销售量增速(%)"]],
+        "产销量数据（FY2025）":       data["volume"][["行业","销售量(PCS)","生产量(PCS)","库存量(PCS)","销售量增速(%)"]],
         "费用对比（FY2024 vs 2025）": data["expenses"],
         "市场份额（弗若斯特沙利文）": data["market_share"],
         "ROE近3年":                   data["roe"],
@@ -907,7 +804,7 @@ def render_tab_export(data: dict) -> None:
         mask    = df_show.astype(str).apply(lambda col: col.str.contains(keyword, na=False)).any(axis=1)
         df_show = df_show[mask]
 
-    st.dataframe(df_show, use_container_width=True, height=400)
+    dataframe(df_show, height=400)
 
     csv_single = df_show.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
@@ -918,7 +815,6 @@ def render_tab_export(data: dict) -> None:
     )
 
     st.markdown("---")
-
     all_dfs = []
     for name, df in export_tables.items():
         df_copy = df.copy()
@@ -952,17 +848,14 @@ def render_tab_export(data: dict) -> None:
         st.metric("分红基准股本", "27.07 亿股", delta="扣除回购股份后")
 
     st.markdown("### 📈 股息率动态计算")
-    price = st.number_input(
-        "请输入当前股价（元）", min_value=0.01, value=60.00, step=0.5,
-        help="输入汇川技术（300124.SZ）当前市场价格",
-    )
+    price = st.number_input("请输入当前股价（元）", min_value=0.01, value=60.00, step=0.5,
+                            help="输入汇川技术（300124.SZ）当前市场价格")
     if price > 0:
-        dividend_per_share = 0.50
-        yield_rate = dividend_per_share / price * 100
+        yield_rate = 0.50 / price * 100
         st.metric(
             label=f"股息率（基于股价 {price:.2f} 元）",
             value=f"{yield_rate:.2f}%",
-            delta=f"每股分红 {dividend_per_share:.2f} 元（含税）",
+            delta="每股分红 0.50 元（含税）",
         )
         if yield_rate < 1.0:
             st.warning("⚠️ 当前股息率低于1%，汇川以成长性为主要投资逻辑，分红比例相对较低。")
@@ -1019,11 +912,7 @@ def render_sidebar() -> str:
         """)
 
         st.markdown("#### 🎯 分析视角")
-        view_mode = st.radio(
-            "选择分析聚焦方向",
-            ["全面分析", "增长聚焦", "盈利聚焦"],
-            index=0,
-        )
+        view_mode = st.radio("选择分析聚焦方向", ["全面分析", "增长聚焦", "盈利聚焦"], index=0)
 
         st.markdown("---")
         st.caption("📅 数据截止：2025年12月31日")
@@ -1078,7 +967,7 @@ if __name__ == "__main__":
 
 # ============================================================
 # 运行说明：
-#   pip install streamlit plotly pandas numpy
+#   pip install streamlit==1.35.0 plotly==5.22.0 pandas==2.2.2 numpy==1.26.4
 #   streamlit run inovance_dashboard.py
 #
 # 免责声明：
